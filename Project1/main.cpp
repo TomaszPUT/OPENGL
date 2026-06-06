@@ -89,9 +89,9 @@ glm::vec3 MODEL_POS   = glm::vec3(0.0f, -1.80f, -1.1f); // gdzie lezy (obniz/pod
 float     MODEL_SCALE = 0.9f;                            // rozmiar
 float     MODEL_ROT_X = 90.0f;                           // 90 = lezy poziomo na boku
 // ════════════════════════════════════════════════════════════
-const int NUM_FISHES = 15;
-const int NUM_ROCKS = 10;
-const int NUM_PLANTS = 10;
+const int NUM_FISHES = 115;
+const int NUM_ROCKS = 30;
+const int NUM_PLANTS = 20;
 
 // Skupiska - rosliny, kamienie i muszle grupujemy, zeby scena nie byla chaotyczna
 const glm::vec2 CLUSTERS[3] = { glm::vec2(-1.5f, 0.4f), glm::vec2(1.4f, -0.4f), glm::vec2(0.3f, 1.0f) };
