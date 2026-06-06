@@ -5,9 +5,10 @@ class Cube {
 public:
     Cube();
     ~Cube();
-    void drawSolid(); // Nazwa funkcji dostosowana do szablonu z Twoich zajęć (Models::torus.drawSolid())
-    void drawEdges();
+    void drawSolid();   // pelna bryla - teraz WSZYSTKIE 6 scian (z gornym dnem!)
+    void drawEdges();   // sam szkielet (12 krawedzi)
 
 private:
-    GLuint VAO, VBO, EBO;
+    GLuint solidVAO, solidVBO, solidEBO;
+    GLuint edgeVAO, edgeVBO, edgeEBO;
 };

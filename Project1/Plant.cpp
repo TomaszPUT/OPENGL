@@ -1,11 +1,20 @@
 #include "Plant.h"
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <cstdlib>
 #include <cmath>
 
 Plant::Plant(glm::vec3 basePos, float height, float swayStrength)
     : basePosition(basePos), totalHeight(height),
     swayStrength(swayStrength), timeAccumulator(0.0f) {
+
+    phase = (float)rand() / RAND_MAX * 6.28f;
+
+    float k = (float)rand() / RAND_MAX;
+    if (k < 0.6f)       tint = glm::vec3(0.06f, 0.50f, 0.16f);  // zwykla zielen
+    else if (k < 0.85f) tint = glm::vec3(0.10f, 0.46f, 0.34f);  // seledyn / morska
+    else                tint = glm::vec3(0.26f, 0.46f, 0.10f);  // oliwkowa
+
     initGeometry();
 }
 
@@ -16,9 +25,6 @@ Plant::~Plant() {
 }
 
 void Plant::initGeometry() {
-    // Jeden segment to prosty prostokąt (quad) - 2 trójkąty
-    // Segment: szerokość 0.05, wysokość 1.0 (skalowana później)
-    // Układ: X, Y, Z,  U, V,  NX, NY, NZ
     float segVertices[] = {
         -0.05f, 0.0f, 0.0f,  0.0f, 0.0f,  0.0f, 0.0f, 1.0f,
          0.05f, 0.0f, 0.0f,  1.0f, 0.0f,  0.0f, 0.0f, 1.0f,
@@ -31,27 +37,17 @@ void Plant::initGeometry() {
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
     glGenBuffers(1, &EBO);
-
     glBindVertexArray(VAO);
-
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(segVertices), segVertices, GL_STATIC_DRAW);
-
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(segIndices), segIndices, GL_STATIC_DRAW);
-
-    // Pozycja
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
-    // Texcoord
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
-        (void*)(3 * sizeof(float)));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
-    // Normalna
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
-        (void*)(5 * sizeof(float)));
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
     glEnableVertexAttribArray(2);
-
     glBindVertexArray(0);
 }
 
@@ -61,76 +57,60 @@ void Plant::update(float deltaTime) {
 
 void Plant::draw(GLuint shaderProgram, glm::mat4 aquariumBaseM) {
     glUseProgram(shaderProgram);
-
     glUniform1i(glGetUniformLocation(shaderProgram, "useTexture"), 0);
     glUniform1i(glGetUniformLocation(shaderProgram, "useProceduralFish"), 0);
     glUniform1i(glGetUniformLocation(shaderProgram, "useProceduralPlant"), 1);
     glUniform1i(glGetUniformLocation(shaderProgram, "isRock"), 0);
     glUniform1i(glGetUniformLocation(shaderProgram, "isEmissive"), 0);
 
-    float segmentHeight = totalHeight / SEGMENT_COUNT;
+    GLint locM = glGetUniformLocation(shaderProgram, "M");
+    GLint locC = glGetUniformLocation(shaderProgram, "objectColor");
     glBindVertexArray(VAO);
 
-    for (int i = 0; i < SEGMENT_COUNT; i++) {
-        float ratio = (float)i / (float)SEGMENT_COUNT;
+    // KEPA: kilka lodyg blisko siebie -> bujny krzaczek (nie jedna mizerna lodyga)
+    const int STALKS = 5;
+    const float ox[STALKS] = { 0.00f, 0.16f, -0.14f, 0.08f, -0.09f };
+    const float oz[STALKS] = { 0.00f, -0.12f, 0.10f, 0.14f, -0.13f };
+    const float oh[STALKS] = { 1.00f, 0.78f, 0.85f, 0.66f, 0.72f }; // rozne wysokosci
 
-        // Kołysanie rośnie ku górze segmentu
-        float sway = swayStrength * ratio
-            * sinf(timeAccumulator * 1.5f + ratio * 2.0f);
+    for (int st = 0; st < STALKS; st++) {
+        float stalkHeight = totalHeight * oh[st];
+        float segmentHeight = stalkHeight / SEGMENT_COUNT;
+        float stalkPhase = phase + st * 1.1f;
+        glm::vec3 stalkBase = basePosition + glm::vec3(ox[st], 0.0f, oz[st]);
 
-        // Baza transformacji dla tego segmentu (bez finalnego skalowania)
-        glm::mat4 segBase = aquariumBaseM;
-        segBase = glm::translate(segBase, basePosition);
-        segBase = glm::translate(segBase,
-            glm::vec3(0.0f, i * segmentHeight, 0.0f));
-        segBase = glm::rotate(segBase, sway, glm::vec3(0.0f, 0.0f, 1.0f));
+        for (int i = 0; i < SEGMENT_COUNT; i++) {
+            float ratio = (float)i / (float)SEGMENT_COUNT;
 
-        // Szerokość segmentu — zwęża się ku górze
-        // KLUCZOWE: było 0.12f → teraz 2.5f (20x szerzej!)
-        float wScale = (1.0f - ratio * 0.5f) * 2.5f;
-        glm::vec3 sv(wScale, segmentHeight, 0.05f);
+            float t     = timeAccumulator * 1.5f + stalkPhase;
+            float swayZ = swayStrength * ratio * sinf(t + ratio * 2.0f);
+            float swayX = swayStrength * 0.5f * ratio * sinf(t * 0.7f + ratio * 1.3f);
 
-        // Kolor: ciemnozielony u dołu → jasnozielony u góry
-        float g = 0.55f + ratio * 0.40f;
-        glUniform4f(glGetUniformLocation(shaderProgram, "objectColor"),
-            0.02f, g, 0.05f, 0.92f);
+            glm::mat4 segBase = aquariumBaseM;
+            segBase = glm::translate(segBase, stalkBase);
+            segBase = glm::translate(segBase, glm::vec3(0.0f, i * segmentHeight, 0.0f));
+            segBase = glm::rotate(segBase, swayZ, glm::vec3(0.0f, 0.0f, 1.0f));
+            segBase = glm::rotate(segBase, swayX, glm::vec3(1.0f, 0.0f, 0.0f));
 
-        // ── 4 LIŚCIE na krzyż — widoczne ze wszystkich stron ──
+            // Wstega: w miare szeroka, lekko zwezona ku gorze -> bujny lisc
+            float wScale = (1.0f - ratio * 0.45f) * 1.5f + 0.18f;
+            glm::vec3 sv(wScale, segmentHeight, 0.05f);
 
-        // Liść 1: twarzą ku kamerze (0°)
-        glm::mat4 M1 = glm::scale(segBase, sv);
-        glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "M"),
-            1, GL_FALSE, glm::value_ptr(M1));
-        glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
+            glm::vec3 c = tint * (0.55f + ratio * 0.6f);
+            glUniform4f(locC, c.r, c.g, c.b, 1.0f);
 
-        // Liść 2: obrócony 90° wokół Y
-        glm::mat4 M2 = glm::rotate(segBase,
-            glm::radians(90.0f),
-            glm::vec3(0.0f, 1.0f, 0.0f));
-        M2 = glm::scale(M2, sv);
-        glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "M"),
-            1, GL_FALSE, glm::value_ptr(M2));
-        glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
-
-        // Liść 3: odwrócony (180°) — druga strona liścia 1
-        glm::mat4 M3 = glm::rotate(segBase,
-            glm::radians(180.0f),
-            glm::vec3(0.0f, 1.0f, 0.0f));
-        M3 = glm::scale(M3, sv);
-        glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "M"),
-            1, GL_FALSE, glm::value_ptr(M3));
-        glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
-
-        // Liść 4: 270° — druga strona liścia 2
-        glm::mat4 M4 = glm::rotate(segBase,
-            glm::radians(270.0f),
-            glm::vec3(0.0f, 1.0f, 0.0f));
-        M4 = glm::scale(M4, sv);
-        glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "M"),
-            1, GL_FALSE, glm::value_ptr(M4));
-        glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
+            // 2 skrzyzowane liscie (0 i 90 stopni). Bez cullingu kazdy widac z obu
+            // stron, wiec nie trzeba 4 - a 0 i 180 to ta sama plaszczyzna (migotala).
+            for (int rot = 0; rot < 2; rot++) {
+                glm::mat4 M = glm::rotate(segBase,
+                    glm::radians(90.0f * rot), glm::vec3(0.0f, 1.0f, 0.0f));
+                M = glm::scale(M, sv);
+                glUniformMatrix4fv(locM, 1, GL_FALSE, glm::value_ptr(M));
+                glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
+            }
+        }
     }
 
     glBindVertexArray(0);
     glUniform1i(glGetUniformLocation(shaderProgram, "useProceduralPlant"), 0);
-}   
+}

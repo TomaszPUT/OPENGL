@@ -17,20 +17,17 @@ Fish::~Fish() {
 void Fish::update(float deltaTime) {
     position += velocity * deltaTime;
 
-    // Definiujemy margines (padding), aby ryba odbijała się nosem, a nie środkiem brzucha
     float paddingX = 0.4f;
     float paddingY = 0.4f;
     float paddingZ = 0.4f;
 
-    // Obliczamy nowe, węższe granice akwarium
     float maxX = 2.8f - paddingX;
     float minX = -2.8f + paddingX;
-    float maxY = 1.5f - paddingY; // Powierzchnia wody
-    float minY = -1.8f + paddingY; // Dno
+    float maxY = 1.5f - paddingY;
+    float minY = -1.8f + paddingY;
     float maxZ = 1.8f - paddingZ;
     float minZ = -1.8f + paddingZ;
 
-    // Odbicia z uwzględnieniem paddingu
     if (position.x > maxX) { position.x = maxX;  velocity.x = -velocity.x; }
     if (position.x < minX) { position.x = minX;  velocity.x = -velocity.x; }
 
@@ -86,7 +83,6 @@ void Fish::initSphere(float radius, int sectors, int stacks) {
 }
 
 void Fish::initTail() {
-    // Układ: X, Y, Z,   U, V,   NX, NY, NZ
     float tailVertices[] = {
         0.0f,  0.0f,  0.0f,  0.5f, 0.5f,  1.0f,  0.0f,  0.0f,
        -1.0f,  0.8f,  0.5f,  0.0f, 1.0f, -1.0f,  0.5f,  0.5f,
@@ -116,19 +112,16 @@ void Fish::initTail() {
 void Fish::draw(GLuint shaderProgram, glm::mat4 aquariumBaseM) {
     glUseProgram(shaderProgram);
 
-    // Włącz proceduralne łuski
     glUniform1i(glGetUniformLocation(shaderProgram, "useTexture"), 0);
     glUniform1i(glGetUniformLocation(shaderProgram, "useProceduralFish"), 1);
     glUniform1i(glGetUniformLocation(shaderProgram, "useProceduralPlant"), 0);
 
-    // Kąt obrotu rybki w kierunku ruchu
     float fishYaw = atan2(-velocity.z, velocity.x);
 
     glm::mat4 baseM = aquariumBaseM;
     baseM = glm::translate(baseM, position);
     baseM = glm::rotate(baseM, fishYaw, glm::vec3(0, 1, 0));
 
-    // 1. Ciało — kolor rybki przekazany do shadera
     glm::mat4 MBody = baseM;
     MBody = glm::scale(MBody, glm::vec3(0.25f, 0.20f, 0.15f));
     glUniform4f(glGetUniformLocation(shaderProgram, "objectColor"),
@@ -138,7 +131,6 @@ void Fish::draw(GLuint shaderProgram, glm::mat4 aquariumBaseM) {
     glBindVertexArray(sphereVAO);
     glDrawElements(GL_TRIANGLES, sphereIndexCount, GL_UNSIGNED_INT, 0);
 
-    // 2. Ogon — ciemniejszy kolor tego samego odcienia
     glm::mat4 MTail = baseM;
     MTail = glm::translate(MTail, glm::vec3(-0.2f, 0.0f, 0.0f));
     MTail = glm::scale(MTail, glm::vec3(0.25f, 0.25f, 0.25f));
@@ -149,6 +141,5 @@ void Fish::draw(GLuint shaderProgram, glm::mat4 aquariumBaseM) {
     glBindVertexArray(tailVAO);
     glDrawElements(GL_TRIANGLES, 18, GL_UNSIGNED_INT, 0);
 
-    // Wyłącz flagę proceduralna po rysowaniu
     glUniform1i(glGetUniformLocation(shaderProgram, "useProceduralFish"), 0);
 }

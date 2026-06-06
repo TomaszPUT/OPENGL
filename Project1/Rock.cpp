@@ -1,6 +1,8 @@
 #include "Rock.h"
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <cstdlib>
+#include <cmath>
 
 Rock::Rock(glm::vec3 startPos, glm::vec3 startScale) : position(startPos), scale(startScale) {
     initGeometry();
@@ -15,18 +17,35 @@ Rock::~Rock() {
 void Rock::initGeometry() {
     std::vector<float> vertices;
     std::vector<unsigned int> indices;
-    int sectors = 20; int stacks = 20; float radius = 1.0f;
+    int sectors = 24; int stacks = 24; float radius = 1.0f;
+
+    // Losowe fazy - dzieki nim KAZDY kamien ma inny ksztalt.
+    // (srand() jest wywolane raz w main, wiec za kazdym razem inne wartosci.)
+    float ph1 = (float)rand() / RAND_MAX * 6.28f;
+    float ph2 = (float)rand() / RAND_MAX * 6.28f;
+    float ph3 = (float)rand() / RAND_MAX * 6.28f;
 
     for (int i = 0; i <= stacks; ++i) {
         float stackAngle = glm::pi<float>() / 2 - i * glm::pi<float>() / stacks;
-        float y = radius * sinf(stackAngle);
         for (int j = 0; j <= sectors; ++j) {
             float sectorAngle = j * 2 * glm::pi<float>() / sectors;
-            float x = radius * cosf(stackAngle) * cosf(sectorAngle);
-            float z = radius * cosf(stackAngle) * sinf(sectorAngle);
+
+            // ── Nieregularny promien: kula + kilka fal = bryla glazu ──
+            // Niskie czestotliwosci = duze garby, wyzsze = drobne nierownosci.
+            float bump =
+                  0.22f * sinf(3.0f * sectorAngle + ph1) * cosf(2.0f * stackAngle + ph2)
+                + 0.12f * sinf(5.0f * stackAngle + ph3)
+                + 0.07f * cosf(7.0f * sectorAngle + ph2);
+            float r = radius * (1.0f + bump);
+
+            float x = r * cosf(stackAngle) * cosf(sectorAngle);
+            float y = r * sinf(stackAngle);
+            float z = r * cosf(stackAngle) * sinf(sectorAngle);
 
             float u = (float)j / sectors; float v = (float)i / stacks;
-            float nx = x / radius; float ny = y / radius; float nz = z / radius; // Matematyczna normalna kuli
+            // Normalna przyblizona kierunkiem od srodka (wystarcza dla glazu)
+            float len = sqrtf(x * x + y * y + z * z);
+            float nx = x / len; float ny = y / len; float nz = z / len;
 
             vertices.push_back(x); vertices.push_back(y); vertices.push_back(z);
             vertices.push_back(u); vertices.push_back(v);
@@ -60,10 +79,9 @@ void Rock::initGeometry() {
 }
 
 void Rock::draw(GLuint shaderProgram, glm::mat4 aquariumBaseM) {
-    // Obliczanie pozycji i deformacji kamienia
     glm::mat4 M = aquariumBaseM;
     M = glm::translate(M, position);
-    M = glm::scale(M, scale); // To "spłaszcza" sferę w płaski kamień!
+    M = glm::scale(M, scale); // splaszcza glaz, zeby lezal na dnie
 
     glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "M"), 1, GL_FALSE, glm::value_ptr(M));
 

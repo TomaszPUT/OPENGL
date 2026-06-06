@@ -9,13 +9,24 @@ out vec4 pixelColor;
 uniform vec4      objectColor;
 uniform sampler2D tex;
 uniform int       useTexture;
-uniform float     lightIntensity;
+uniform float     lightIntensity;   // GLOWNE POKRETLO JASNOSCI (main.cpp)
+uniform float     time;
 uniform int       useProceduralFish;
 uniform int       useProceduralPlant;
 uniform int       isRock;
-uniform int       isEmissive;   // 1 = lampa akwariowa (świeci bez obliczeń)
+uniform int       isEmissive;
+uniform int       isPearl;
+uniform int       isBubble;
+uniform int       isGold;
+uniform vec3      camPos;          // pozycja kamery (orbitujacej) - do odbic i mgly
+uniform float     pulseStrength;    // sila pulsowania diod (0 = brak, 1 = mocne)
+uniform float     pulseSpeed;       // tempo pulsowania (wieksze = szybsze)
 
-// ─── WZORY PROCEDURALNE ────────────────────────────────
+// Dwa dolne, kolorowe zrodla swiatla (kuleczki). Pozycje i kolory podaje main.cpp.
+uniform vec3 botLight1Pos; uniform vec3 botLight1Col;
+uniform vec3 botLight2Pos; uniform vec3 botLight2Col;
+
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 
 float scalePattern(vec2 uv) {
     vec2  sc    = uv * vec2(8.0, 12.0);
@@ -28,121 +39,144 @@ float scalePattern(vec2 uv) {
 }
 
 float veinPattern(vec2 uv) {
-    float c = 1.0 - smoothstep(0.0, 0.08, abs(uv.x - 0.5));
-    float s = pow(sin(uv.y * 20.0) * 0.5 + 0.5, 8.0);
-    return clamp(c * 0.6 + s * 0.3, 0.0, 1.0);
+    float c = 1.0 - smoothstep(0.0, 0.06, abs(uv.x - 0.5));
+    float s = pow(sin(uv.y * 22.0) * 0.5 + 0.5, 6.0);
+    return clamp(c * 0.7 + s * 0.25, 0.0, 1.0);
 }
 
-vec3 sandColor(vec2 uv) {
-    vec2  s = uv * 12.0;
-    float n = sin(s.x * 3.7 + s.y * 2.3) * 0.5 + 0.5;
-    float m = cos(s.x * 1.9 - s.y * 5.1) * 0.5 + 0.5;
-    float k = sin((s.x + s.y) * 4.3)     * 0.5 + 0.5;
-    return mix(vec3(0.55, 0.42, 0.24), vec3(0.88, 0.74, 0.50),
-               n * 0.5 + m * 0.3 + k * 0.2);
+vec3 sandColor(vec2 uv, vec3 texRGB) {
+    float ripple = sin(uv.x * 55.0 + sin(uv.y * 9.0) * 3.0) * 0.5 + 0.5;
+    ripple = pow(ripple, 2.0);
+    float grain = hash(floor(uv * 420.0));
+    vec3  base  = texRGB;
+    base *= (0.80 + 0.30 * ripple);
+    base += (grain - 0.5) * 0.10;
+    base = mix(base, base * vec3(1.10, 1.00, 0.80), 0.4);
+    return clamp(base, 0.0, 1.0);
 }
 
-vec3 rockColor(vec2 uv) {
-    vec2  s = uv * 7.0;
-    float n = sin(s.x * 4.3 + s.y * 3.1) * 0.5 + 0.5;
-    float m = cos(s.x * 2.7 - s.y * 5.3) * 0.5 + 0.5;
-    float k = sin((s.x + s.y) * 7.1)     * 0.5 + 0.5;
-    return mix(vec3(0.22, 0.20, 0.18), vec3(0.55, 0.52, 0.48),
-               n * 0.4 + m * 0.35 + k * 0.25);
+vec3 rockColor(vec2 uv, vec3 texRGB) {
+    vec2  s  = uv * 6.0;
+    float n  = sin(s.x * 4.3 + s.y * 3.1) * 0.5 + 0.5;
+    float m  = cos(s.x * 2.7 - s.y * 5.3) * 0.5 + 0.5;
+    float rough = hash(floor(uv * 90.0)) * 0.22;
+    vec3  base = texRGB;
+    base *= (0.65 + 0.55 * (n * 0.6 + m * 0.4));
+    base -= rough;
+    return clamp(base, 0.0, 1.0);
+}
+
+// Kolorowe swiatlo punktowe (kuleczka na dnie). Swieci we wszystkie strony,
+// wiec ryby NAD nia dostaja kolor od dolu.
+vec3 pointLight(vec3 lpos, vec3 lcol, vec3 norm) {
+    vec3  d    = lpos - iFragPos;
+    float dist = length(d);
+    float att  = 1.0 / (1.0 + 0.20 * dist + 0.30 * dist * dist);
+    float diff = max(dot(norm, normalize(d)), 0.0);
+    return (diff * 0.85 + 0.15) * lcol * att * 11.0;
 }
 
 void main(void) {
 
-    // Lampa akwariowa: brak obliczeń — czyste świecenie
-    if (isEmissive == 1) {
+    if (isEmissive == 1) {            // lampa gorna i kuleczki-swiatla: czysty kolor
         pixelColor = vec4(objectColor.rgb, objectColor.a);
         return;
     }
 
     vec3 norm    = normalize(iNormal);
-    vec3 viewDir = normalize(vec3(0.0, 0.0, -15.0) - iFragPos);
+    vec3 viewDir = normalize(camPos - iFragPos);
+    float fresnel = pow(1.0 - max(dot(norm, viewDir), 0.0), 3.0);
 
-    // ═══════════════════════════════════════════════════════
-    //  ŹRÓDŁO ŚWIATŁA 1 — Lampa akwariowa
-    //  Pozycja: tuż nad akwarium, ciepłe białe światło
-    // ═══════════════════════════════════════════════════════
-    vec3  L1pos  = vec3(0.0, 2.3, 0.3);
-    vec3  L1dir  = normalize(L1pos - iFragPos);
-    float L1dist = length(L1pos - iFragPos);
-    float L1att  = 1.0 / (1.0 + 0.05 * L1dist + 0.003 * L1dist * L1dist);
-    float L1diff = max(dot(norm, L1dir), 0.0);
-    vec3  L1col  = vec3(1.00, 0.96, 0.85);
-    vec3  L1dif  = L1diff * L1col * L1att * 5.5;
-    // Odbłysk spekullarny
-    vec3  L1refl = reflect(-L1dir, norm);
-    float L1spec = pow(max(dot(viewDir, L1refl), 0.0), 48.0);
-    vec3  L1sp   = L1spec * L1col * 0.80 * L1att;
+    // ── GORNE BIALE SWIATLO - tylko GORNA POLOWA akwarium ──
+    // Wygaszamy je z wysokoscia: pelne u gory, znika ok. polowy zbiornika.
+    vec3  Lpos   = vec3(0.0, 2.6, 0.0);
+    vec3  Ldir   = normalize(Lpos - iFragPos);
+    float Ldist  = length(Lpos - iFragPos);
+    float Latt   = 1.0 / (1.0 + 0.05 * Ldist + 0.010 * Ldist * Ldist);
+    float topReach = smoothstep(-0.3, 1.3, iFragPos.y);   // 0 w dolnej polowie, 1 u gory
+    float Ldiff  = max(dot(norm, Ldir), 0.0);
+    vec3  Lcol   = vec3(1.00, 0.96, 0.86);
+    vec3  Ldif   = Ldiff * Lcol * Latt * 9.0 * topReach;
+    vec3  Lrefl  = reflect(-Ldir, norm);
+    float Lspec  = pow(max(dot(viewDir, Lrefl), 0.0), 48.0);
+    vec3  Lsp    = Lspec * Lcol * Latt * topReach;
 
-    // ═══════════════════════════════════════════════════════
-    //  ŹRÓDŁO ŚWIATŁA 2 — Boczne niebieskie
-    //  Symuluje odbicia światła przez szkło i wodę
-    // ═══════════════════════════════════════════════════════
-    vec3  L2pos  = vec3(5.5, 1.0, 0.0);
-    vec3  L2dir  = normalize(L2pos - iFragPos);
-    float L2dist = length(L2pos - iFragPos);
-    float L2att  = 1.0 / (1.0 + 0.07 * L2dist + 0.005 * L2dist * L2dist);
-    float L2diff = max(dot(norm, L2dir), 0.0);
-    vec3  L2col  = vec3(0.15, 0.45, 0.95);
-    vec3  L2dif  = L2diff * L2col * L2att * 1.8;
-    vec3  L2refl = reflect(-L2dir, norm);
-    float L2spec = pow(max(dot(viewDir, L2refl), 0.0), 24.0);
-    vec3  L2sp   = L2spec * L2col * 0.30 * L2att;
+    // ── DWA DOLNE KOLOROWE SWIATLA (kuleczki) + sterowane pulsowanie ──
+    // pulse = 1 gdy sila=0; przy sile>0 oscyluje. Tempo = pulseSpeed.
+    float pulse = (1.0 - pulseStrength) + pulseStrength * (0.5 + 0.5 * sin(time * pulseSpeed));
+    vec3 b1 = pointLight(botLight1Pos, botLight1Col, norm) * pulse;
+    vec3 b2 = pointLight(botLight2Pos, botLight2Col, norm) * pulse;
 
-    // Ambient — niebieskawy odcień wody
-    vec3 ambient = vec3(0.30, 0.38, 0.50);
+    vec3 ambient = vec3(0.05, 0.07, 0.10);   // ciemno - swiatla robia robote
 
-    // Efekt głębi — dno nieco ciemniejsze (min 0.60, nie 0.28!)
-    float depth = clamp((iFragPos.y + 2.0) / 4.5, 0.60, 1.0);
-
-    vec3 lighting = (ambient + L1dif + L1sp + L2dif + L2sp)
-                    * lightIntensity * depth;
+    vec3 lighting = (ambient + Ldif + Lsp + b1 + b2) * lightIntensity;
     lighting = clamp(lighting, 0.0, 1.0);
 
-    // ═══════════════════════════════════════════════════════
-    //  KOLOR KOŃCOWY
-    // ═══════════════════════════════════════════════════════
+    if (isBubble == 1) {
+        float f   = pow(1.0 - max(dot(norm, viewDir), 0.0), 1.5);
+        vec3  col = mix(vec3(0.65, 0.82, 1.0), vec3(1.0), f);
+        col += Lsp * 1.5;
+        float a = clamp(objectColor.a + f * 0.05, 0.0, 0.32);
+        pixelColor = vec4(col, a);
+        return;
+    }
 
-    if (useProceduralFish == 1) {
+    vec3  col;
+    float alpha = objectColor.a;
+
+    if (isPearl == 1) {
+        vec3 irid = 0.5 + 0.5 * cos(vec3(0.0, 1.6, 3.2) + fresnel * 4.0 + norm.y * 2.0);
+        vec3 base = mix(vec3(0.80, 0.74, 0.60), irid, 0.18);
+        col   = base * lighting + Lsp * 1.2 + fresnel * vec3(0.20, 0.22, 0.26);
+        alpha = 1.0;
+
+    } else if (useProceduralFish == 1) {
         float sv     = scalePattern(iTexCoord);
         vec3  base   = objectColor.rgb;
         vec3  bright = mix(base, vec3(1.0), 0.30);
         vec3  dark   = base * 0.28;
         vec3  sc     = mix(bright, dark, sv);
-        sc += (L1sp + L2sp) * base * 0.4;
-        pixelColor = vec4(lighting * sc, 1.0);
+        sc += Lsp * base * 0.4;
+        col   = lighting * sc;
+        alpha = 1.0;
 
     } else if (useProceduralPlant == 1) {
-        // ─────────────────────────────────────────────────
-        // KLUCZOWA POPRAWKA: normalna płaskiego liścia jest
-        // ZAWSZE prostopadła do obu świateł → dot() = 0
-        // Dlatego używamy stałego oświetlenia dla roślin!
-        // ─────────────────────────────────────────────────
         float vein  = veinPattern(iTexCoord);
         vec3  base  = objectColor.rgb;
-        vec3  vc    = mix(base, base + vec3(0.02, 0.22, 0.02), vein);
+        vec3  vc    = mix(base, base + vec3(0.04, 0.30, 0.06), vein);
+        vec3  pLight = vec3(0.08, 0.13, 0.10)
+                     + Lcol * 0.9 * Latt * topReach
+                     + b1 * 0.7 + b2 * 0.7;
+        col   = clamp(pLight * lightIntensity, 0.0, 1.0) * vc;
 
-        // Stałe oświetlenie — niezależne od normalnej
-        vec3  pLight = vec3(0.55, 0.75, 0.55)   // zielona poświata własna
-                     + L1col * 0.55 * L1att      // lampa górna
-                     + L2col * 0.20 * L2att;     // lampa boczna
-        pLight = clamp(pLight * lightIntensity, 0.0, 1.0);
-        pixelColor = vec4(pLight * vc, objectColor.a);
+    } else if (isGold == 1) {
+        col  = lighting * objectColor.rgb;
+        col += Lsp * 2.5;
+        alpha = 1.0;
 
     } else if (isRock == 1) {
-        pixelColor = vec4(lighting * rockColor(iTexCoord), 1.0);
+        vec3 t = texture(tex, iTexCoord).rgb;
+        col  = lighting * rockColor(iTexCoord, t);
+        col += Lsp * 0.4;
+        alpha = 1.0;
 
     } else if (useTexture == 1) {
-        vec4  t   = texture(tex, iTexCoord);
-        float b   = dot(t.rgb, vec3(0.333));
-        vec3  col = (b > 0.88 && t.r > 0.82) ? sandColor(iTexCoord) : t.rgb;
-        pixelColor = vec4(lighting * col, objectColor.a);
+        // DNO: sam piasek (kafelek x3). Bez okregow, bez kaustyki - czysto i ciemno.
+        vec2 suv = iTexCoord * 3.0;
+        vec3 t   = texture(tex, suv).rgb;
+        col  = lighting * sandColor(suv, t);
+        alpha = objectColor.a;
 
     } else {
-        pixelColor = vec4(lighting * objectColor.rgb, objectColor.a);
+        col   = lighting * objectColor.rgb;
+        alpha = objectColor.a;
     }
+
+    // Mgla wodna - ciemna ton w glebi
+    float dist = length(camPos - iFragPos);
+    float fog  = clamp((dist - 12.0) / 16.0, 0.0, 0.7);
+    vec3  haze = vec3(0.015, 0.03, 0.06);
+    col = mix(col, haze, fog);
+
+    pixelColor = vec4(clamp(col, 0.0, 1.0), alpha);
 }

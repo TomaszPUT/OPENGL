@@ -17,6 +17,9 @@ private:
     float swayStrength;
     float timeAccumulator;
 
+    float     phase;   // wlasne przesuniecie fazy - kazda roslina kolysze sie inaczej
+    glm::vec3 tint;    // wlasny odcien zieleni - urozmaicenie
+
     static const int SEGMENT_COUNT = 8;
 
     GLuint VAO, VBO, EBO;

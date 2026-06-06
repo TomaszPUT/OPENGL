@@ -1,73 +1,104 @@
 #include "Cube.h"
 
+// Pudelko x[-3,3] y[-2,2] z[-2,2]. Kazda sciana ma 4 wlasne wierzcholki,
+// dzieki czemu mamy poprawne UV (0..1 na kazdej scianie) i poprawna,
+// PROSTOPADLA normalna. Wczesniejsza wersja miala tylko 5 scian (brak gornej)
+// i pofalszowane normalne - stad piasek wygladal jak "taska" i swiatlo padalo dziwnie.
 Cube::Cube() {
-    // Układ: X, Y, Z,   U, V,   NX, NY, NZ
-    float vertices[] = {
-        -3.0f, -2.0f,  2.0f,   0.0f, 0.0f,  -0.6f, -0.4f,  0.6f,
-         3.0f, -2.0f,  2.0f,   1.0f, 0.0f,   0.6f, -0.4f,  0.6f,
-         3.0f,  2.0f,  2.0f,   1.0f, 1.0f,   0.6f,  0.4f,  0.6f,
-        -3.0f,  2.0f,  2.0f,   0.0f, 1.0f,  -0.6f,  0.4f,  0.6f,
-        -3.0f, -2.0f, -2.0f,   1.0f, 0.0f,  -0.6f, -0.4f, -0.6f,
-         3.0f, -2.0f, -2.0f,   0.0f, 0.0f,   0.6f, -0.4f, -0.6f,
-         3.0f,  2.0f, -2.0f,   0.0f, 1.0f,   0.6f,  0.4f, -0.6f,
-        -3.0f,  2.0f, -2.0f,   1.0f, 1.0f,  -0.6f,  0.4f, -0.6f
+    // Format: X,Y,Z,  U,V,  NX,NY,NZ
+    float v[] = {
+        // PRZOD (z = +2), normalna (0,0,1)
+        -3,-2, 2,  0,0,  0,0,1,
+         3,-2, 2,  1,0,  0,0,1,
+         3, 2, 2,  1,1,  0,0,1,
+        -3, 2, 2,  0,1,  0,0,1,
+        // TYL (z = -2), normalna (0,0,-1)
+         3,-2,-2,  0,0,  0,0,-1,
+        -3,-2,-2,  1,0,  0,0,-1,
+        -3, 2,-2,  1,1,  0,0,-1,
+         3, 2,-2,  0,1,  0,0,-1,
+        // LEWA (x = -3), normalna (-1,0,0)
+        -3,-2,-2,  0,0, -1,0,0,
+        -3,-2, 2,  1,0, -1,0,0,
+        -3, 2, 2,  1,1, -1,0,0,
+        -3, 2,-2,  0,1, -1,0,0,
+        // PRAWA (x = +3), normalna (1,0,0)
+         3,-2, 2,  0,0,  1,0,0,
+         3,-2,-2,  1,0,  1,0,0,
+         3, 2,-2,  1,1,  1,0,0,
+         3, 2, 2,  0,1,  1,0,0,
+        // GORA (y = +2), normalna (0,1,0)  <-- TO JEST DNO/POWIERZCHNIA, ktorej brakowalo
+        -3, 2, 2,  0,0,  0,1,0,
+         3, 2, 2,  1,0,  0,1,0,
+         3, 2,-2,  1,1,  0,1,0,
+        -3, 2,-2,  0,1,  0,1,0,
+        // DOL (y = -2), normalna (0,-1,0)
+        -3,-2,-2,  0,0,  0,-1,0,
+         3,-2,-2,  1,0,  0,-1,0,
+         3,-2, 2,  1,1,  0,-1,0,
+        -3,-2, 2,  0,1,  0,-1,0,
     };
+    unsigned int idx[36];
+    for (int f = 0; f < 6; f++) {
+        unsigned int b = f * 4;
+        idx[f*6+0]=b;   idx[f*6+1]=b+1; idx[f*6+2]=b+2;
+        idx[f*6+3]=b;   idx[f*6+4]=b+2; idx[f*6+5]=b+3;
+    }
 
-    unsigned int indices[] = {
-        0, 1, 2, 2, 3, 0,  1, 5, 6, 6, 2, 1,
-        5, 4, 7, 7, 6, 5,  4, 0, 3, 3, 7, 4,
-        4, 5, 1, 1, 0, 4
-    };
-
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-    glGenBuffers(1, &EBO);
-
-    glBindVertexArray(VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
-    // Atrybut 0: Pozycja (X, Y, Z)
+    glGenVertexArrays(1, &solidVAO); glGenBuffers(1, &solidVBO); glGenBuffers(1, &solidEBO);
+    glBindVertexArray(solidVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, solidVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(v), v, GL_STATIC_DRAW);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, solidEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(idx), idx, GL_STATIC_DRAW);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
-    // Atrybut 1: Tekstura (U, V)
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
-    // Atrybut 2: Normalna (NX, NY, NZ)
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
     glEnableVertexAttribArray(2);
+    glBindVertexArray(0);
 
+    // --- osobny, prosty bufor na szkielet (8 naroznikow) ---
+    float ev[] = {
+        -3,-2, 2,  0,0, 0,0,0,   3,-2, 2,  0,0, 0,0,0,
+         3, 2, 2,  0,0, 0,0,0,  -3, 2, 2,  0,0, 0,0,0,
+        -3,-2,-2,  0,0, 0,0,0,   3,-2,-2,  0,0, 0,0,0,
+         3, 2,-2,  0,0, 0,0,0,  -3, 2,-2,  0,0, 0,0,0,
+    };
+    unsigned int ei[] = {
+        0,1, 1,2, 2,3, 3,0,
+        4,5, 5,6, 6,7, 7,4,
+        0,4, 1,5, 2,6, 3,7
+    };
+    glGenVertexArrays(1, &edgeVAO); glGenBuffers(1, &edgeVBO); glGenBuffers(1, &edgeEBO);
+    glBindVertexArray(edgeVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, edgeVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(ev), ev, GL_STATIC_DRAW);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, edgeEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(ei), ei, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
+    glEnableVertexAttribArray(2);
     glBindVertexArray(0);
 }
+
 Cube::~Cube() {
-    glDeleteVertexArrays(1, &VAO);
-    glDeleteBuffers(1, &VBO);
-    glDeleteBuffers(1, &EBO);
+    glDeleteVertexArrays(1, &solidVAO); glDeleteBuffers(1, &solidVBO); glDeleteBuffers(1, &solidEBO);
+    glDeleteVertexArrays(1, &edgeVAO);  glDeleteBuffers(1, &edgeVBO);  glDeleteBuffers(1, &edgeEBO);
 }
 
 void Cube::drawSolid() {
-    glBindVertexArray(VAO);
-    glDrawElements(GL_TRIANGLES, 30, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(solidVAO);
+    glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 }
 
 void Cube::drawEdges() {
-    unsigned int edgeIndices[] = {
-        0, 1, 1, 2, 2, 3, 3, 0,
-        4, 5, 5, 6, 6, 7, 7, 4,
-        0, 4, 1, 5, 2, 6, 3, 7
-    };
-
-    GLuint edgeEBO;
-    glGenBuffers(1, &edgeEBO);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, edgeEBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(edgeIndices), edgeIndices, GL_STATIC_DRAW);
-
-    glBindVertexArray(VAO);
+    glBindVertexArray(edgeVAO);
     glDrawElements(GL_LINES, 24, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
-
-    glDeleteBuffers(1, &edgeEBO);
 }

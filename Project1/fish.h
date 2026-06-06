@@ -9,8 +9,6 @@ public:
     ~Fish();
 
     void update(float deltaTime);
-
-    // ZMIANA: Zamiast V, P i angle_y, przekazujemy gotową macierz akwarium
     void draw(GLuint shaderProgram, glm::mat4 aquariumBaseM);
 
 private:
