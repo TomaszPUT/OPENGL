@@ -152,6 +152,7 @@
     <ClCompile Include="lodepng.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Model.cpp" />
+    <ClCompile Include="params.cpp" />
     <ClCompile Include="Plant.cpp" />
     <ClCompile Include="Rock.cpp" />
     <ClCompile Include="shaderprogram.cpp" />
@@ -163,6 +164,7 @@
     <ClInclude Include="fish.h" />
     <ClInclude Include="lodepng.h" />
     <ClInclude Include="Model.h" />
+    <ClInclude Include="params.h" />
     <ClInclude Include="Plant.h" />
     <ClInclude Include="Rock.h" />
     <ClInclude Include="shaderprogram.h" />

@@ -19,8 +19,7 @@ void Rock::initGeometry() {
     std::vector<unsigned int> indices;
     int sectors = 24; int stacks = 24; float radius = 1.0f;
 
-    // Losowe fazy - dzieki nim KAZDY kamien ma inny ksztalt.
-    // (srand() jest wywolane raz w main, wiec za kazdym razem inne wartosci.)
+    // Losowe fazy - kazdy kamien dostaje inny, nieregularny ksztalt.
     float ph1 = (float)rand() / RAND_MAX * 6.28f;
     float ph2 = (float)rand() / RAND_MAX * 6.28f;
     float ph3 = (float)rand() / RAND_MAX * 6.28f;

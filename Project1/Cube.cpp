@@ -1,9 +1,7 @@
 #include "Cube.h"
 
 // Pudelko x[-3,3] y[-2,2] z[-2,2]. Kazda sciana ma 4 wlasne wierzcholki,
-// dzieki czemu mamy poprawne UV (0..1 na kazdej scianie) i poprawna,
-// PROSTOPADLA normalna. Wczesniejsza wersja miala tylko 5 scian (brak gornej)
-// i pofalszowane normalne - stad piasek wygladal jak "taska" i swiatlo padalo dziwnie.
+// dzieki czemu kazda ma poprawne UV (0..1) i wlasna, prostopadla normalna.
 Cube::Cube() {
     // Format: X,Y,Z,  U,V,  NX,NY,NZ
     float v[] = {
@@ -27,7 +25,7 @@ Cube::Cube() {
          3,-2,-2,  1,0,  1,0,0,
          3, 2,-2,  1,1,  1,0,0,
          3, 2, 2,  0,1,  1,0,0,
-        // GORA (y = +2), normalna (0,1,0)  <-- TO JEST DNO/POWIERZCHNIA, ktorej brakowalo
+        // GORA (y = +2), normalna (0,1,0)
         -3, 2, 2,  0,0,  0,1,0,
          3, 2, 2,  1,0,  0,1,0,
          3, 2,-2,  1,1,  0,1,0,

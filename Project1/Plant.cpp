@@ -99,8 +99,7 @@ void Plant::draw(GLuint shaderProgram, glm::mat4 aquariumBaseM) {
             glm::vec3 c = tint * (0.55f + ratio * 0.6f);
             glUniform4f(locC, c.r, c.g, c.b, 1.0f);
 
-            // 2 skrzyzowane liscie (0 i 90 stopni). Bez cullingu kazdy widac z obu
-            // stron, wiec nie trzeba 4 - a 0 i 180 to ta sama plaszczyzna (migotala).
+            // 2 skrzyzowane liscie (0 i 90 stopni). Bez cullingu widac je z obu stron.
             for (int rot = 0; rot < 2; rot++) {
                 glm::mat4 M = glm::rotate(segBase,
                     glm::radians(90.0f * rot), glm::vec3(0.0f, 1.0f, 0.0f));
