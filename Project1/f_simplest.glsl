@@ -22,6 +22,7 @@ uniform vec3      camPos;          // pozycja kamery (orbitujacej) - do odbic i 
 uniform float     pulseStrength;    // sila pulsowania diod (0 = brak, 1 = mocne)
 uniform float     pulseSpeed;       // tempo pulsowania (wieksze = szybsze)
 uniform float     sceneScale;       // skala calej sceny (do zachowania proporcji swiatla)
+uniform float     bubbleClear;      // 0 = babel rownomierny, 1 = srodek przezroczysty (Fresnel)
 
 // Dwa dolne, kolorowe zrodla swiatla (kuleczki). Pozycje i kolory podaje main.cpp.
 uniform vec3 botLight1Pos; uniform vec3 botLight1Col;
@@ -114,11 +115,16 @@ void main(void) {
     lighting = clamp(lighting, 0.0, 1.0);
 
     if (isBubble == 1) {
-        float f   = pow(1.0 - max(dot(norm, viewDir), 0.0), 1.5);
-        vec3  col = mix(vec3(0.65, 0.82, 1.0), vec3(1.0), f);
-        col += Lsp * 1.5;
-        float a = clamp(objectColor.a + f * 0.05, 0.0, 0.32);
-        pixelColor = vec4(col, a);
+
+
+        float rim = pow(1.0 - max(dot(norm, viewDir), 0.0), 2);
+        vec3  col = mix(vec3(0.55, 0.75, 1.0), vec3(1.0), rim);  // brzeg bielszy
+        col += Lsp * 1.5;                                       // maly blik na bance
+        
+
+        float base = objectColor.a;                            // losowe krycie z C++ (0..0.3)
+        float a = base * mix(1.0, rim, bubbleClear) + rim * 0.15 * bubbleClear;
+        pixelColor = vec4(col, clamp(a, 0.0, 0.9));
         return;
     }
 

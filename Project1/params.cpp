@@ -1,9 +1,9 @@
 #include "params.h"
 
 // ===== ILE CZEGO W AKWARIUM =====
-int NUM_FISHES  = 15;   // liczba rybek
-int NUM_ROCKS   = 10;   // liczba kamieni
-int NUM_PLANTS  = 10;   // liczba roslin (kazda to kepa kilku lodyg)
+int NUM_FISHES  = 21;   // liczba rybek
+int NUM_ROCKS   = 13;   // liczba kamieni
+int NUM_PLANTS  = 13;   // liczba roslin (kazda to kepa kilku lodyg)
 int NUM_BUBBLES = 28;   // liczba babelkow
 
 // ===== JASNOSC =====
@@ -25,4 +25,7 @@ float     MODEL_SCALE = 0.9f;                            // rozmiar
 float     MODEL_ROT_X = 90.0f;                           // 90 = lezy poziomo
 
 // ===== WIELKOSC AKWARIUM =====
-float aquariumScale = 4.0f;     // 1.0 = bazowa; wiecej = wieksze akwarium (cala scena skaluje sie razem)
+float aquariumScale = 1.0f;     // 1.0 = bazowa; wiecej = wieksze akwarium (cala scena skaluje sie razem)
+
+// ===== BABELKI (efekt mydlanej banki) =====
+float bubbleClear = 1.0f;       // 0 = jak dawniej; 1 = srodek przezroczysty, widac tylko rant

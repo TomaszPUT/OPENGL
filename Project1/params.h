@@ -32,3 +32,7 @@ extern float     MODEL_ROT_X;
 
 // Wielkosc calego akwarium (skaluje cala scene: 1.0 = bazowa, 1.5 = wieksze itd.)
 extern float aquariumScale;
+
+// Efekt "mydlanej banki": 0 = babelki jak dawniej (rownomierne), 1 = srodek prawie
+// calkiem przezroczysty, widac glownie swiecacy rant.
+extern float bubbleClear;

@@ -191,6 +191,7 @@ void initOpenGLProgram(GLFWwindow* window) {
         glm::vec3 randomOffset(getRandomFloat(0.0f, 4.8f), getRandomFloat(0.0f, 2.5f), getRandomFloat(0.0f, 2.8f));
         glm::vec3 pos = corner + randomOffset;
         glm::vec3 vel(getRandomFloat(-2.0f, 2.0f), getRandomFloat(-0.5f, 0.5f), getRandomFloat(-2.0f, 2.0f));
+  
         float r = 0.0f; float g = getRandomFloat(0.0f, 1.0f); float b = getRandomFloat(0.0f, 1.0f);
         if (r > 0.6f && b > 0.6f && g < 0.5f) { g = 0.8f; }   // bez koloru rozowego
         aquariumFishes.push_back(new Fish(pos, glm::vec3(r, g, b), vel));
@@ -271,6 +272,7 @@ void drawScene(GLFWwindow* window, float angle_x, float angle_y, float current_f
     glUniform1f(sp->u("pulseStrength"), pulseStrength);
     glUniform1f(sp->u("pulseSpeed"), pulseSpeed);
     glUniform1f(sp->u("sceneScale"), aquariumScale);
+    glUniform1f(sp->u("bubbleClear"), bubbleClear);
 
     // Kolory diod po obrocie odcienia (klawisz i); pozycje skalujemy razem ze scena
     glm::vec3 effCol1 = rotateHue(kolor1, hueOffset);
