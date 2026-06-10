@@ -26,6 +26,9 @@ float speed_x = 0; float speed_y = 0; float speed_zoom = 0; float fov = 50.0f;
 bool  keyLightUp = false, keyLightDown = false, keyHue = false;   // Q / E / i
 float hueOffset = 0.0f;   // obrot odcienia diod (klawisz i)
 
+float camPitch = 0.0f, camYaw = 0.0f;          // katy kamery (strzalki lub mysz)
+bool  mouseDragging = false; double lastMouseX = 0.0, lastMouseY = 0.0;
+
 Cube* aquariumBox = nullptr;
 ShaderProgram* sp = nullptr;
 Model* shellModel = nullptr;
@@ -113,6 +116,28 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     }
 }
 
+// Prawy przycisk myszy: przytrzymaj i ruszaj, aby obracac kamere
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
+    if (button == GLFW_MOUSE_BUTTON_RIGHT) {
+        if (action == GLFW_PRESS) {
+            mouseDragging = true;
+            glfwGetCursorPos(window, &lastMouseX, &lastMouseY);
+        } else if (action == GLFW_RELEASE) {
+            mouseDragging = false;
+        }
+    }
+}
+
+void cursor_pos_callback(GLFWwindow* window, double x, double y) {
+    if (!mouseDragging) return;
+    double dx = x - lastMouseX, dy = y - lastMouseY;
+    lastMouseX = x; lastMouseY = y;
+    camYaw   += (float)dx * 0.005f;     // czulosc obrotu
+    camPitch += (float)dy * 0.005f;
+    if (camPitch >  1.40f) camPitch =  1.40f;
+    if (camPitch < -1.40f) camPitch = -1.40f;
+}
+
 // Obrot odcienia koloru o zadany kat (RGB -> HSV -> przesun H -> RGB).
 glm::vec3 rotateHue(glm::vec3 c, float deg) {
     float mx = glm::max(c.r, glm::max(c.g, c.b));
@@ -147,6 +172,8 @@ void initOpenGLProgram(GLFWwindow* window) {
     glPolygonOffset(1.0f, 1.0f);
 
     glfwSetKeyCallback(window, key_callback);
+    glfwSetMouseButtonCallback(window, mouse_button_callback);
+    glfwSetCursorPosCallback(window, cursor_pos_callback);
     aquariumBox = new Cube();
     texSand = readTexture("sand.png");
     texRock = readTexture("rock.png");
@@ -164,7 +191,7 @@ void initOpenGLProgram(GLFWwindow* window) {
         glm::vec3 randomOffset(getRandomFloat(0.0f, 4.8f), getRandomFloat(0.0f, 2.5f), getRandomFloat(0.0f, 2.8f));
         glm::vec3 pos = corner + randomOffset;
         glm::vec3 vel(getRandomFloat(-2.0f, 2.0f), getRandomFloat(-0.5f, 0.5f), getRandomFloat(-2.0f, 2.0f));
-        float r = getRandomFloat(0.0f, 1.0f); float g = getRandomFloat(0.0f, 1.0f); float b = getRandomFloat(0.0f, 1.0f);
+        float r = 0.0f; float g = getRandomFloat(0.0f, 1.0f); float b = getRandomFloat(0.0f, 1.0f);
         if (r > 0.6f && b > 0.6f && g < 0.5f) { g = 0.8f; }   // bez koloru rozowego
         aquariumFishes.push_back(new Fish(pos, glm::vec3(r, g, b), vel));
     }
@@ -217,18 +244,19 @@ void drawScene(GLFWwindow* window, float angle_x, float angle_y, float current_f
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // Kamera orbitujaca: scena stoi, obraca sie widok wokol srodka.
-    glm::vec3 center = glm::vec3(0.0f, -0.2f, 0.0f);
+    // Wszystko skalujemy o aquariumScale (wieksze akwarium -> kamera odsuwa sie tak samo).
+    glm::vec3 center = glm::vec3(0.0f, -0.2f, 0.0f) * aquariumScale;
     float pitch = angle_x;
     float yaw   = angle_y;
-    float radius = 13.0f;
+    float radius = 13.0f * aquariumScale;
     glm::vec3 cameraPos = center + radius * glm::vec3(
         cosf(pitch) * sinf(yaw),
         sinf(pitch),
         cosf(pitch) * cosf(yaw));
     glm::mat4 V = glm::lookAt(cameraPos, center, glm::vec3(0.0f, 1.0f, 0.0f));
-    glm::mat4 P = glm::perspective(glm::radians(current_fov), 1024.0f / 768.0f, 0.1f, 100.0f);
+    glm::mat4 P = glm::perspective(glm::radians(current_fov), 1024.0f / 768.0f, 0.1f, 100.0f * aquariumScale);
 
-    glm::mat4 baseM = glm::mat4(1.0f);
+    glm::mat4 baseM = glm::scale(glm::mat4(1.0f), glm::vec3(aquariumScale));   // skala calej sceny
 
     sp->use();
     GLint currentProgram;
@@ -242,13 +270,14 @@ void drawScene(GLFWwindow* window, float angle_x, float angle_y, float current_f
     glUniform3fv(sp->u("camPos"), 1, glm::value_ptr(cameraPos));
     glUniform1f(sp->u("pulseStrength"), pulseStrength);
     glUniform1f(sp->u("pulseSpeed"), pulseSpeed);
+    glUniform1f(sp->u("sceneScale"), aquariumScale);
 
-    // Kolory diod po obrocie odcienia (klawisz i)
+    // Kolory diod po obrocie odcienia (klawisz i); pozycje skalujemy razem ze scena
     glm::vec3 effCol1 = rotateHue(kolor1, hueOffset);
     glm::vec3 effCol2 = rotateHue(kolor2, hueOffset);
-    glUniform3fv(sp->u("botLight1Pos"), 1, glm::value_ptr(botPos1));
+    glUniform3fv(sp->u("botLight1Pos"), 1, glm::value_ptr(botPos1 * aquariumScale));
     glUniform3fv(sp->u("botLight1Col"), 1, glm::value_ptr(effCol1));
-    glUniform3fv(sp->u("botLight2Pos"), 1, glm::value_ptr(botPos2));
+    glUniform3fv(sp->u("botLight2Pos"), 1, glm::value_ptr(botPos2 * aquariumScale));
     glUniform3fv(sp->u("botLight2Col"), 1, glm::value_ptr(effCol2));
 
     // ===== ETAP 1: OBIEKTY NIEPRZEZROCZYSTE =====
@@ -379,13 +408,13 @@ int main(void) {
     glfwMakeContextCurrent(window); glfwSwapInterval(1);
     glewExperimental = GL_TRUE; if (glewInit() != GLEW_OK) exit(EXIT_FAILURE);
     initOpenGLProgram(window);
-    float angle_x = 0; float angle_y = 0; glfwSetTime(0);
+    glfwSetTime(0);
 
     while (!glfwWindowShouldClose(window)) {
         float deltaTime = glfwGetTime(); glfwSetTime(0);
-        angle_x += speed_x * deltaTime; angle_y += speed_y * deltaTime;
-        if (angle_x >  1.40f) angle_x =  1.40f;   // ogranicz pochylenie kamery
-        if (angle_x < -1.40f) angle_x = -1.40f;
+        camPitch += speed_x * deltaTime; camYaw += speed_y * deltaTime;
+        if (camPitch >  1.40f) camPitch =  1.40f;   // ogranicz pochylenie kamery
+        if (camPitch < -1.40f) camPitch = -1.40f;
         fov += speed_zoom * deltaTime;
         if (fov < 10.0f) fov = 10.0f; if (fov > 120.0f) fov = 120.0f;
 
@@ -400,7 +429,7 @@ int main(void) {
         appTime += deltaTime;
         bubbles->update(deltaTime);
 
-        drawScene(window, angle_x, angle_y, fov);
+        drawScene(window, camPitch, camYaw, fov);
         glfwPollEvents();
     }
     freeOpenGLProgram(window); glfwDestroyWindow(window); glfwTerminate(); exit(EXIT_SUCCESS);

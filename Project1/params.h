@@ -29,3 +29,6 @@ extern float pulseSpeed;      // wieksze = szybsze
 extern glm::vec3 MODEL_POS;
 extern float     MODEL_SCALE;
 extern float     MODEL_ROT_X;
+
+// Wielkosc calego akwarium (skaluje cala scene: 1.0 = bazowa, 1.5 = wieksze itd.)
+extern float aquariumScale;

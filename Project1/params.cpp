@@ -23,3 +23,6 @@ float pulseSpeed    = 3.0f;     // tempo pulsowania
 glm::vec3 MODEL_POS   = glm::vec3(0.0f, -1.80f, -1.1f);  // pozycja na dnie (zmien Y jesli wpada/lewituje)
 float     MODEL_SCALE = 0.9f;                            // rozmiar
 float     MODEL_ROT_X = 90.0f;                           // 90 = lezy poziomo
+
+// ===== WIELKOSC AKWARIUM =====
+float aquariumScale = 4.0f;     // 1.0 = bazowa; wiecej = wieksze akwarium (cala scena skaluje sie razem)

@@ -21,6 +21,7 @@ uniform int       isGold;
 uniform vec3      camPos;          // pozycja kamery (orbitujacej) - do odbic i mgly
 uniform float     pulseStrength;    // sila pulsowania diod (0 = brak, 1 = mocne)
 uniform float     pulseSpeed;       // tempo pulsowania (wieksze = szybsze)
+uniform float     sceneScale;       // skala calej sceny (do zachowania proporcji swiatla)
 
 // Dwa dolne, kolorowe zrodla swiatla (kuleczki). Pozycje i kolory podaje main.cpp.
 uniform vec3 botLight1Pos; uniform vec3 botLight1Col;
@@ -70,7 +71,7 @@ vec3 rockColor(vec2 uv, vec3 texRGB) {
 // wiec ryby NAD nia dostaja kolor od dolu.
 vec3 pointLight(vec3 lpos, vec3 lcol, vec3 norm) {
     vec3  d    = lpos - iFragPos;
-    float dist = length(d);
+    float dist = length(d) / sceneScale;   // dzielimy przez skale -> te same proporcje przy wiekszym akwarium
     float att  = 1.0 / (1.0 + 0.20 * dist + 0.30 * dist * dist);
     float diff = max(dot(norm, normalize(d)), 0.0);
     return (diff * 0.85 + 0.15) * lcol * att * 11.0;
@@ -89,11 +90,11 @@ void main(void) {
 
     // ── GORNE BIALE SWIATLO - tylko GORNA POLOWA akwarium ──
     // Wygaszamy je z wysokoscia: pelne u gory, znika ok. polowy zbiornika.
-    vec3  Lpos   = vec3(0.0, 2.6, 0.0);
+    vec3  Lpos   = vec3(0.0, 2.6, 0.0) * sceneScale;
     vec3  Ldir   = normalize(Lpos - iFragPos);
-    float Ldist  = length(Lpos - iFragPos);
+    float Ldist  = length(Lpos - iFragPos) / sceneScale;
     float Latt   = 1.0 / (1.0 + 0.05 * Ldist + 0.010 * Ldist * Ldist);
-    float topReach = smoothstep(-0.3, 1.3, iFragPos.y);   // 0 w dolnej polowie, 1 u gory
+    float topReach = smoothstep(-0.3, 1.3, iFragPos.y / sceneScale);   // 0 w dolnej polowie, 1 u gory
     float Ldiff  = max(dot(norm, Ldir), 0.0);
     vec3  Lcol   = vec3(1.00, 0.96, 0.86);
     vec3  Ldif   = Ldiff * Lcol * Latt * 9.0 * topReach;
@@ -173,7 +174,7 @@ void main(void) {
     }
 
     // Mgla wodna - ciemna ton w glebi
-    float dist = length(camPos - iFragPos);
+    float dist = length(camPos - iFragPos) / sceneScale;
     float fog  = clamp((dist - 12.0) / 16.0, 0.0, 0.7);
     vec3  haze = vec3(0.015, 0.03, 0.06);
     col = mix(col, haze, fog);
